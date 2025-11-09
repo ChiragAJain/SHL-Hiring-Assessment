@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHL Assessment Finder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 15px;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 32px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+            margin-bottom: 16px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        input[type="number"] {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 80px;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0052a3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .result-header {
+            background: white;
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .result-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            flex: 1;
+        }
+
+        .score {
+            background: #e8f4fd;
+            color: #0066cc;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            margin-left: 12px;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .card-description {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .card-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .skill {
+            background: #f8f8f8;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .card-link {
+            display: inline-block;
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .card-link:hover {
+            text-decoration: underline;
+        }
+
+        .error {
+            background: #fff3f3;
+            border: 1px solid #ffcccc;
+            color: #cc0000;
+            padding: 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            input[type="number"] {
+                width: 100%;
+            }
+
+            .card-header {
+                flex-direction: column;
+            }
+
+            .score {
+                margin-left: 0;
+                margin-top: 8px;
+                align-self: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SHL Assessment Finder</h1>
+            <p class="subtitle">Find the right assessments for your hiring needs</p>
+        </header>
+
+        <div class="search-box">
+            <textarea 
+                id="query" 
+                placeholder="Describe the role you're hiring for... (e.g., Java developer with 3 years experience, needs SQL and teamwork skills)"
+            ></textarea>
+            
+            <div class="controls">
+                <label for="n_results">Results:</label>
+                <input type="number" id="n_results" min="5" max="10" value="10">
+                <button id="searchBtn">Search</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Finding assessments...</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="result-header">
+                <h2>Recommendations</h2>
+                <div id="analysis"></div>
+            </div>
+            <div id="resultsContainer"></div>
+        </div>
+
+        <div id="error"></div>
+    </div>
+
+    <script>
+        // Auto-detect API URL (works locally and on Render)
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000' 
+            : window.location.origin;
+
+        document.getElementById('searchBtn').addEventListener('click', search);
+        document.getElementById('query').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') search();
+        });
+
+        async function search() {
+            const query = document.getElementById('query').value.trim();
+            const n_results = parseInt(document.getElementById('n_results').value);
+
+            if (!query) {
+                alert('Please enter a job description');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('error').innerHTML = '';
+            document.getElementById('searchBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_URL}/recommend`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, n_results })
+                });
+
+                if (!response.ok) throw new Error(`Error: ${response.status}`);
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (error) {
+                document.getElementById('error').innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}<br>
+                        Make sure the API is running on ${API_URL}
+                    </div>
+                `;
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const analysis = document.getElementById('analysis');
+            const container = document.getElementById('resultsContainer');
+
+            // Show analysis
+            if (data.analysis) {
+                let tags = '';
+                
+                if (data.analysis.required_skills && data.analysis.required_skills.length > 0) {
+                    data.analysis.required_skills.slice(0, 5).forEach(skill => {
+                        tags += `<span class="tag">${skill}</span>`;
+                    });
+                }
+                
+                if (data.analysis.job_level) {
+                    tags += `<span class="tag">${data.analysis.job_level}</span>`;
+                }
+                
+                if (data.analysis.required_test_types && data.analysis.required_test_types.length > 0) {
+                    tags += `<span class="tag">${data.analysis.required_test_types.join(', ')}</span>`;
+                }
+
+                analysis.innerHTML = `<div class="tags">${tags}</div>`;
+            }
+
+            // Show results
+            let html = '';
+            data.recommendations.forEach((item, index) => {
+                const score = ((item.final_score || item.similarity_score) * 100).toFixed(0);
+                
+                html += `
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">${index + 1}. ${item.name}</div>
+                            <div class="score">${score}%</div>
+                        </div>
+                        
+                        <div class="card-meta">
+                            ${item.test_types.length > 0 ? `<span>${item.test_types.join(', ')}</span>` : ''}
+                            ${item.job_level ? `<span>${item.job_level}</span>` : ''}
+                            ${item.category ? `<span>${item.category}</span>` : ''}
+                        </div>
+                        
+                        <div class="card-description">
+                            ${item.description.substring(0, 150)}${item.description.length > 150 ? '...' : ''}
+                        </div>
+                        
+                        ${item.skills && item.skills.length > 0 ? `
+                            <div class="card-skills">
+                                ${item.skills.slice(0, 6).map(skill => 
+                                    `<span class="skill">${skill}</span>`
+                                ).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <a href="${item.url}" target="_blank" class="card-link">View Assessment →</a>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('results').classList.add('show');
+        }
+    </script>
+</body>
+</html>

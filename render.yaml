@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: shl-assessment-api
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: pip install -r requirements.txt && python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/e5-large-v2')"
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.10.0
+    healthCheckPath: /health
