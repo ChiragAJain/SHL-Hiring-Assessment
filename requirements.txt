@@ -12,18 +12,18 @@ google-generativeai==0.3.1
 chromadb==0.4.18
 sentence-transformers==2.2.2
 
-# Data processing
-pandas==2.1.3
-openpyxl==3.1.2
-numpy==1.26.2
+# Data processing (not needed for API, only for data collection)
+# pandas==2.1.3
+# openpyxl==3.1.2
+# numpy==1.26.2
 
-# Web scraping (for data collection - optional)
-beautifulsoup4==4.12.2
-requests==2.31.0
+# Web scraping (for data collection - not needed for deployment)
+# beautifulsoup4==4.12.2
+# requests==2.31.0
 
-# MCP Server (optional)
-fastmcp==0.1.0
-mcp==0.1.0
+# MCP Server (not needed for deployment)
+# fastmcp==0.1.0
+# mcp==0.1.0
 
 # Utilities
 python-multipart==0.0.6
