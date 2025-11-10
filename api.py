@@ -34,20 +34,36 @@ search_engine = None
 
 try:
     print("Loading vector store...")
-    vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Files in current directory: {os.listdir('.')}")
     
-    # Load assessments if collection is empty
+    json_file = 'shl_assessments.json'
+    if not os.path.exists(json_file):
+        print(f"ERROR: {json_file} not found!")
+        raise FileNotFoundError(f"{json_file} not found in {os.getcwd()}")
+    
+    print(f"Found {json_file}, size: {os.path.getsize(json_file)} bytes")
+    
+    vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
+    print(f"Vector store initialized. Collection count: {vector_store.collection.count()}")
+    
+    # Always load assessments on startup (Railway has ephemeral storage)
     if vector_store.collection.count() == 0:
         print("Collection is empty. Loading assessments from JSON...")
         import json
-        with open('shl_assessments.json', 'r', encoding='utf-8') as f:
+        with open(json_file, 'r', encoding='utf-8') as f:
             assessments = json.load(f)
+        print(f"Parsed {len(assessments)} assessments from JSON")
         vector_store.add_assessments(assessments)
-        print(f"Loaded {len(assessments)} assessments")
+        print(f"Successfully loaded {len(assessments)} assessments")
+    else:
+        print(f"Collection already has {vector_store.collection.count()} assessments")
     
     print(f"Vector store ready: {vector_store.collection.count()} assessments")
 except Exception as e:
     print(f"ERROR loading vector store: {e}")
+    import traceback
+    traceback.print_exc()
     raise
 
 try:
