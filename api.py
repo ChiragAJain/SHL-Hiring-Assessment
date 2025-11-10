@@ -110,7 +110,7 @@ def parse_duration(duration_str: str) -> int:
 
 class RecommendationRequest(BaseModel):
     query: str = Field(..., description="Job description or natural language query")
-    n_results: int = Field(10, ge=5, le=10, description="Number of results (5-10)")
+    n_results: int = Field(10, ge=1, le=10, description="Number of results (1-10)")
     filter_test_types: Optional[List[str]] = Field(None, description="Filter by test types")
     
     class Config:
@@ -185,20 +185,22 @@ async def health_check():
     }
 
 
-@app.api_route("/recommend", methods=["GET", "POST"], response_model=RecommendationResponse, tags=["Recommendations"])
-async def recommend_assessments(
-    request: RecommendationRequest = None,
-    query: str = Query(None, description="Job description or natural language query"),
+@app.post("/recommend", response_model=RecommendationResponse, tags=["Recommendations"])
+async def recommend_assessments_post(request: RecommendationRequest):
+    return await _recommend_assessments(request)
+
+
+@app.get("/recommend", response_model=RecommendationResponse, tags=["Recommendations"])
+async def recommend_assessments_get(
+    query: str = Query(..., description="Job description or natural language query"),
     n_results: int = Query(10, ge=1, le=10, description="Number of results (1-10)")
 ):
+    request = RecommendationRequest(query=query, n_results=n_results)
+    return await _recommend_assessments(request)
+
+
+async def _recommend_assessments(request: RecommendationRequest):
     try:
-        # Handle both GET and POST requests
-        if request is None:
-            # GET request with query parameters
-            if not query:
-                raise HTTPException(status_code=400, detail="Query parameter is required")
-            request = RecommendationRequest(query=query, n_results=n_results)
-        
         if not request.query or len(request.query.strip()) < 3:
             raise HTTPException(status_code=400, detail="Query must be at least 3 characters long")
         
