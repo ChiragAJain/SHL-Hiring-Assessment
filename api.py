@@ -25,27 +25,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-print("Loading vector store...")
-vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
+print("Initializing API...")
 
-# Load assessments if collection is empty
-if vector_store.collection.count() == 0:
-    print("Collection is empty. Loading assessments from JSON...")
-    import json
-    with open('shl_assessments.json', 'r', encoding='utf-8') as f:
-        assessments = json.load(f)
-    vector_store.add_assessments(assessments)
-    print(f"Loaded {len(assessments)} assessments")
+# Initialize components with error handling
+vector_store = None
+query_analyser = None
+search_engine = None
 
-print(f"Vector store ready: {vector_store.collection.count()} assessments")
+try:
+    print("Loading vector store...")
+    vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
+    
+    # Load assessments if collection is empty
+    if vector_store.collection.count() == 0:
+        print("Collection is empty. Loading assessments from JSON...")
+        import json
+        with open('shl_assessments.json', 'r', encoding='utf-8') as f:
+            assessments = json.load(f)
+        vector_store.add_assessments(assessments)
+        print(f"Loaded {len(assessments)} assessments")
+    
+    print(f"Vector store ready: {vector_store.collection.count()} assessments")
+except Exception as e:
+    print(f"ERROR loading vector store: {e}")
+    raise
 
-print("Loading query analyzer...")
-query_analyser = QueryAnalyser()
-print("Query analyzer ready")
+try:
+    print("Loading query analyzer...")
+    query_analyser = QueryAnalyser()
+    print("Query analyzer ready")
+except Exception as e:
+    print(f"ERROR loading query analyzer: {e}")
+    raise
 
-print("Loading keyword search...")
-search_engine = KeywordSearchEngine()
-print("Keyword search ready")
+try:
+    print("Loading keyword search...")
+    search_engine = KeywordSearchEngine()
+    print("Keyword search ready")
+except Exception as e:
+    print(f"ERROR loading keyword search: {e}")
+    raise
+
+print("API initialization complete!")
 
 
 SKILL_SYNONYMS = {
@@ -123,16 +144,13 @@ class RecommendationRequest(BaseModel):
 
 
 class Assessment(BaseModel):
-    name: str
     url: str
+    name: str
+    adaptive_support: str = "No"
     description: str
-    test_types: List[str]
-    job_level: str
-    skills: List[str]
-    category: str
-    similarity_score: float
-    distance: float
-    final_score: Optional[float] = None
+    duration: Optional[int] = None
+    remote_support: str = "Yes"
+    test_type: List[str]
 
 
 class RecommendationResponse(BaseModel):
@@ -178,6 +196,9 @@ async def root():
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
+    if vector_store is None:
+        raise HTTPException(status_code=503, detail="Vector store not initialized")
+    
     return {
         "status": "healthy",
         "message": "SHL Assessment Recommendation API (Improved) is running",
@@ -201,6 +222,9 @@ async def recommend_assessments_get(
 
 async def _recommend_assessments(request: RecommendationRequest):
     try:
+        if vector_store is None or query_analyser is None:
+            raise HTTPException(status_code=503, detail="Service not fully initialized")
+        
         if not request.query or len(request.query.strip()) < 3:
             raise HTTPException(status_code=400, detail="Query must be at least 3 characters long")
         
@@ -324,7 +348,27 @@ async def _recommend_assessments(request: RecommendationRequest):
                     unique_recs.append(res)
         
         results = sorted(unique_recs, key=lambda x: x['final_score'], reverse=True)[:request.n_results]
-        assessments = [Assessment(**result) for result in results]
+        
+        # Map to required response format
+        assessments = []
+        for result in results:
+            # Parse duration string to integer (minutes)
+            duration_val = None
+            if result.get('duration'):
+                duration_val = parse_duration(result['duration'])
+                if duration_val == 999:
+                    duration_val = None
+            
+            assessment = Assessment(
+                url=result['url'],
+                name=result['name'],
+                adaptive_support=result.get('adaptive_support', 'No'),
+                description=result['description'],
+                duration=duration_val,
+                remote_support=result.get('remote_support', 'Yes'),
+                test_type=result['test_types']
+            )
+            assessments.append(assessment)
         
         return RecommendationResponse(
             query=request.query,
