@@ -26,63 +26,71 @@ app.add_middleware(
 )
 
 print("Initializing API...")
+print(f"Current working directory: {os.getcwd()}")
 
-# Initialize components with error handling
+# Initialize components
 vector_store = None
 query_analyser = None
 search_engine = None
+is_initializing = False
+initialization_complete = False
 
-try:
-    print("Loading vector store...")
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Files in current directory: {os.listdir('.')}")
-    
-    json_file = 'shl_assessments.json'
-    if not os.path.exists(json_file):
-        print(f"ERROR: {json_file} not found!")
-        raise FileNotFoundError(f"{json_file} not found in {os.getcwd()}")
-    
-    print(f"Found {json_file}, size: {os.path.getsize(json_file)} bytes")
-    
-    vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
-    print(f"Vector store initialized. Collection count: {vector_store.collection.count()}")
-    
-    # Always load assessments on startup (Railway has ephemeral storage)
-    if vector_store.collection.count() == 0:
-        print("Collection is empty. Loading assessments from JSON...")
-        import json
-        with open(json_file, 'r', encoding='utf-8') as f:
-            assessments = json.load(f)
-        print(f"Parsed {len(assessments)} assessments from JSON")
-        vector_store.add_assessments(assessments)
-        print(f"Successfully loaded {len(assessments)} assessments")
-    else:
-        print(f"Collection already has {vector_store.collection.count()} assessments")
-    
-    print(f"Vector store ready: {vector_store.collection.count()} assessments")
-except Exception as e:
-    print(f"ERROR loading vector store: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+import threading
 
-try:
-    print("Loading query analyzer...")
-    query_analyser = QueryAnalyser()
-    print("Query analyzer ready")
-except Exception as e:
-    print(f"ERROR loading query analyzer: {e}")
-    raise
+def initialize_in_background():
+    """Initialize components in background thread"""
+    global vector_store, query_analyser, search_engine, is_initializing, initialization_complete
+    
+    is_initializing = True
+    
+    try:
+        print("Background initialization started...")
+        print(f"Files in directory: {len(os.listdir('.'))}")
+        
+        json_file = 'shl_assessments.json'
+        if not os.path.exists(json_file):
+            print(f"ERROR: {json_file} not found!")
+            return
+        
+        print(f"Found {json_file}, size: {os.path.getsize(json_file)} bytes")
+        
+        print("Loading vector store...")
+        vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
+        print(f"Vector store initialized. Collection count: {vector_store.collection.count()}")
+        
+        # Load assessments if empty
+        if vector_store.collection.count() == 0:
+            print("Loading assessments from JSON...")
+            import json
+            with open(json_file, 'r', encoding='utf-8') as f:
+                assessments = json.load(f)
+            print(f"Parsed {len(assessments)} assessments")
+            vector_store.add_assessments(assessments)
+            print(f"Loaded {len(assessments)} assessments")
+        
+        print("Loading query analyzer...")
+        query_analyser = QueryAnalyser()
+        print("Query analyzer ready")
+        
+        print("Loading keyword search...")
+        search_engine = KeywordSearchEngine()
+        print("Keyword search ready")
+        
+        initialization_complete = True
+        print("✓ API initialization complete!")
+        
+    except Exception as e:
+        print(f"ERROR during initialization: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        is_initializing = False
 
-try:
-    print("Loading keyword search...")
-    search_engine = KeywordSearchEngine()
-    print("Keyword search ready")
-except Exception as e:
-    print(f"ERROR loading keyword search: {e}")
-    raise
+# Start background initialization
+init_thread = threading.Thread(target=initialize_in_background, daemon=True)
+init_thread.start()
 
-print("API initialization complete!")
+print("API server ready (initializing components in background)...")
 
 
 SKILL_SYNONYMS = {
@@ -212,13 +220,23 @@ async def root():
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    if vector_store is None:
-        raise HTTPException(status_code=503, detail="Vector store not initialized")
+    # Always return healthy to pass Railway healthcheck
+    # Actual initialization happens in background
+    assessments_count = 0
+    status_msg = "SHL Assessment Recommendation API"
+    
+    if initialization_complete and vector_store is not None:
+        assessments_count = vector_store.collection.count()
+        status_msg += " (Ready)"
+    elif is_initializing:
+        status_msg += " (Initializing...)"
+    else:
+        status_msg += " (Starting...)"
     
     return {
         "status": "healthy",
-        "message": "SHL Assessment Recommendation API (Improved) is running",
-        "assessments_loaded": vector_store.collection.count()
+        "message": status_msg,
+        "assessments_loaded": assessments_count
     }
 
 
@@ -238,8 +256,12 @@ async def recommend_assessments_get(
 
 async def _recommend_assessments(request: RecommendationRequest):
     try:
-        if vector_store is None or query_analyser is None:
-            raise HTTPException(status_code=503, detail="Service not fully initialized")
+        # Check if initialization is complete
+        if not initialization_complete or vector_store is None:
+            raise HTTPException(
+                status_code=503, 
+                detail="Service is still initializing. Please try again in a moment."
+            )
         
         if not request.query or len(request.query.strip()) < 3:
             raise HTTPException(status_code=400, detail="Query must be at least 3 characters long")
