@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -27,6 +27,16 @@ app.add_middleware(
 
 print("Loading vector store...")
 vector_store = AssessmentVectorStore(collection_name="shl_assessments_e5")
+
+# Load assessments if collection is empty
+if vector_store.collection.count() == 0:
+    print("Collection is empty. Loading assessments from JSON...")
+    import json
+    with open('shl_assessments.json', 'r', encoding='utf-8') as f:
+        assessments = json.load(f)
+    vector_store.add_assessments(assessments)
+    print(f"Loaded {len(assessments)} assessments")
+
 print(f"Vector store ready: {vector_store.collection.count()} assessments")
 
 print("Loading query analyzer...")
@@ -175,9 +185,20 @@ async def health_check():
     }
 
 
-@app.post("/recommend", response_model=RecommendationResponse, tags=["Recommendations"])
-async def recommend_assessments(request: RecommendationRequest):
+@app.api_route("/recommend", methods=["GET", "POST"], response_model=RecommendationResponse, tags=["Recommendations"])
+async def recommend_assessments(
+    request: RecommendationRequest = None,
+    query: str = Query(None, description="Job description or natural language query"),
+    n_results: int = Query(10, ge=1, le=10, description="Number of results (1-10)")
+):
     try:
+        # Handle both GET and POST requests
+        if request is None:
+            # GET request with query parameters
+            if not query:
+                raise HTTPException(status_code=400, detail="Query parameter is required")
+            request = RecommendationRequest(query=query, n_results=n_results)
+        
         if not request.query or len(request.query.strip()) < 3:
             raise HTTPException(status_code=400, detail="Query must be at least 3 characters long")
         

@@ -5,7 +5,12 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 
 load_dotenv()
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+# Support both GEMINI_API_KEY and GOOGLE_API_KEY
+api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+if api_key:
+    genai.configure(api_key=api_key)
+else:
+    print("WARNING: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY environment variable.")
 
 
 class QueryAnalyser:
