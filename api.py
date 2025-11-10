@@ -375,6 +375,11 @@ async def _recommend_assessments(request: RecommendationRequest):
                 if duration_val == 999:
                     duration_val = None
             
+            # Ensure test_types is a list
+            test_types = result.get('test_types', [])
+            if isinstance(test_types, str):
+                test_types = [t.strip() for t in test_types.split(',') if t.strip()]
+            
             assessment = Assessment(
                 url=result['url'],
                 name=result['name'],
@@ -382,7 +387,7 @@ async def _recommend_assessments(request: RecommendationRequest):
                 description=result['description'],
                 duration=duration_val,
                 remote_support=result.get('remote_support', 'Yes'),
-                test_type=result['test_types']
+                test_type=test_types
             )
             assessments.append(assessment)
         
@@ -400,7 +405,12 @@ async def _recommend_assessments(request: RecommendationRequest):
             count=len(assessments)
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        error_detail = f"Internal server error: {str(e)}\n{traceback.format_exc()}"
+        print(error_detail)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
