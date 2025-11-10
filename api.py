@@ -109,6 +109,8 @@ SKILL_SYNONYMS = {
 def expand_skills(skills: List[str]) -> List[str]:
     expanded = set()
     for skill in skills:
+        if not skill:  # Skip None or empty strings
+            continue
         skill_lower = skill.lower()
         expanded.add(skill_lower)
         # Add synonyms
@@ -278,9 +280,9 @@ async def _recommend_assessments(request: RecommendationRequest):
             filter_test_types=None
         )
         
-        llm_job_level = analysis.get('job_level', '').lower()
+        llm_job_level = (analysis.get('job_level') or '').lower()
         llm_test_types = analysis.get('required_test_types', [])
-        llm_role = analysis.get('role', '').lower()
+        llm_role = (analysis.get('role') or '').lower()
         
         if not llm_test_types:
             llm_test_types = ["K", "P"]
@@ -292,7 +294,7 @@ async def _recommend_assessments(request: RecommendationRequest):
             semantic_score = res['similarity_score']
             keyword_score = 0.0
             assessment_name = res.get('name', '').lower()
-            assessment_skills = [s.lower().strip() for s in res.get('skills', [])]
+            assessment_skills = [s.lower().strip() for s in res.get('skills', []) if s]
             
             for skill in expanded_skills:
                 if skill in assessment_name:
