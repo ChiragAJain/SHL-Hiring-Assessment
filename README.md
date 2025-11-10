@@ -68,15 +68,15 @@ python api.py
 
 5. Open `index.html` in your browser or visit `http://localhost:8000`
 
-## Deployment on Render
+## Deployment on Railway
 
-The app is configured for one-click deployment on Render:
+The app is configured for one-click deployment on Railway:
 
 1. Push to GitHub
-2. Create new Web Service on Render
+2. Create new Project under Railway
 3. Connect your repo
 4. Add environment variable: `GEMINI_API_KEY`
-5. Deploy (Render auto-detects `render.yaml`)
+5. Deploy (Railway auto-detects `procfile`)
 
 Build takes about 5-10 minutes (downloads E5 model during build).
 
